@@ -1,0 +1,93 @@
+{
+  "architectures": [
+    "VisionEncoderDecoderModel"
+  ],
+  "decoder": {
+    "_name_or_path": "microsoft/BioGPT",
+    "activation_dropout": 0.0,
+    "add_cross_attention": true,
+    "architectures": [
+      "BioGptForCausalLM"
+    ],
+    "attention_probs_dropout_prob": 0.1,
+    "bos_token_id": 0,
+    "chunk_size_feed_forward": 0,
+    "dtype": "float32",
+    "eos_token_id": 2,
+    "hidden_act": "gelu",
+    "hidden_dropout_prob": 0.1,
+    "hidden_size": 1024,
+    "id2label": {
+      "0": "LABEL_0",
+      "1": "LABEL_1"
+    },
+    "initializer_range": 0.02,
+    "intermediate_size": 4096,
+    "is_decoder": true,
+    "is_encoder_decoder": false,
+    "label2id": {
+      "LABEL_0": 0,
+      "LABEL_1": 1
+    },
+    "layer_norm_eps": 1e-12,
+    "layerdrop": 0.0,
+    "max_position_embeddings": 1024,
+    "model_type": "biogpt",
+    "num_attention_heads": 16,
+    "num_hidden_layers": 24,
+    "output_attentions": false,
+    "output_hidden_states": false,
+    "pad_token_id": 1,
+    "problem_type": null,
+    "return_dict": true,
+    "scale_embedding": true,
+    "tie_word_embeddings": true,
+    "use_cache": true,
+    "vocab_size": 42384
+  },
+  "decoder_start_token_id": 0,
+  "dtype": "float32",
+  "encoder": {
+    "_name_or_path": "google/vit-base-patch16-224-in21k",
+    "architectures": [
+      "ViTModel"
+    ],
+    "attention_probs_dropout_prob": 0.0,
+    "chunk_size_feed_forward": 0,
+    "dtype": "float32",
+    "encoder_stride": 16,
+    "hidden_act": "gelu",
+    "hidden_dropout_prob": 0.0,
+    "hidden_size": 768,
+    "id2label": {
+      "0": "LABEL_0",
+      "1": "LABEL_1"
+    },
+    "image_size": 224,
+    "initializer_range": 0.02,
+    "intermediate_size": 3072,
+    "is_encoder_decoder": false,
+    "label2id": {
+      "LABEL_0": 0,
+      "LABEL_1": 1
+    },
+    "layer_norm_eps": 1e-12,
+    "model_type": "vit",
+    "num_attention_heads": 12,
+    "num_channels": 3,
+    "num_hidden_layers": 12,
+    "output_attentions": false,
+    "output_hidden_states": false,
+    "patch_size": 16,
+    "pooler_act": "tanh",
+    "pooler_output_size": 768,
+    "problem_type": null,
+    "qkv_bias": true,
+    "return_dict": true
+  },
+  "is_encoder_decoder": true,
+  "model_type": "vision-encoder-decoder",
+  "pad_token_id": 1,
+  "tie_word_embeddings": false,
+  "transformers_version": "5.0.0"
+}
