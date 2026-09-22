@@ -1,0 +1,21 @@
+{
+  "dataset_name": "Indiana University Chest X-Ray (IU X-Ray / OpenI)",
+  "source": "National Library of Medicine (NLM) Open-i",
+  "provenance_url": "https://openi.nlm.nih.gov/",
+  "license": "Public Open Access (NLM Open-i terms)",
+  "total_raw_reports": 3955,
+  "total_filtered_reports": 3337,
+  "train_reports": 2335,
+  "val_reports": 333,
+  "test_reports": 669,
+  "avg_findings_words": 31.45,
+  "max_findings_words": 169,
+  "min_findings_words": 7,
+  "filtering_criteria": [
+    "XML parsing of official NLM OpenI release",
+    "Mandatory non-empty FINDINGS section (length >= 10 chars)",
+    "Associated chest radiograph image identifier present",
+    "Standard anonymization token normalization ([ANON])",
+    "Patient-level split to prevent data contamination across train/val/test"
+  ]
+}

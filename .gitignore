@@ -1,0 +1,12 @@
+data/iu_xray/raw/
+data/iu_xray/images/
+checkpoints/
+results/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
+*.egg-info/
+dist/
+build/
