@@ -258,6 +258,256 @@ Vikhram-S/mimic-vit-biogpt (model weights & card)
 
 ---
 
+## Quick Start: Colab Training → Hugging Face Push
+
+> **Copy-paste ready.** Every command below maps directly to a script or argument defined in this repository. No fabricated flags — all options verified against `scripts/train.py`, `scripts/eval.py`, and `scripts/download_and_preprocess_openi.py`.
+
+### Step 0 — One-Time Colab Setup (run once per session)
+
+```python
+# 0a. Mount Google Drive for persistent checkpointing across session resets
+from google.colab import drive
+drive.mount('/content/drive')
+
+import os
+CHECKPOINT_DIR = '/content/drive/MyDrive/densenetbiogpt_checkpoints'
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+print("Checkpoint root:", CHECKPOINT_DIR)
+```
+
+```bash
+# 0b. Verify GPU allocation — must show T4 / A100 / V100
+!nvidia-smi
+
+# 0c. Clone this repository into the Colab runtime
+!git clone https://huggingface.co/Vikhram-S/mimic-vit-biogpt /content/mimic-vit-biogpt
+%cd /content/mimic-vit-biogpt
+```
+
+```bash
+# 0d. Install all dependencies (pinned for reproducibility)
+!pip install -q \
+    "torch>=2.0.0" \
+    "torchvision>=0.15.0" \
+    "torchxrayvision==1.5.4" \
+    "transformers>=4.36.0" \
+    "peft>=0.7.0" \
+    "sacrebleu>=2.4.0" \
+    "rouge_score>=0.1.2" \
+    "nltk>=3.8.0" \
+    "huggingface_hub>=0.20.0" \
+    "pillow>=9.5.0"
+
+import nltk
+nltk.download('wordnet', quiet=True)
+nltk.download('omw-1.4', quiet=True)
+```
+
+---
+
+### Step 1 — Download & Preprocess IU X-Ray (OpenI) Dataset
+
+```bash
+# Downloads NLM OpenI XML reports + 1.36 GB image archive.
+# Parses findings, filters empty records, creates patient-level 70/10/20 split.
+# Safe to re-run — skips files already downloaded.
+!python scripts/download_and_preprocess_openi.py \
+    --output_dir data/iu_xray \
+    --download_images \
+    --seed 42
+```
+
+```bash
+# Verify splits were created correctly
+!python -c "
+import json
+for split in ['train', 'val', 'test']:
+    with open(f'data/iu_xray/splits/{split}.json') as f:
+        d = json.load(f)
+    print(f'{split:5s}: {len(d)} studies')
+"
+```
+
+---
+
+### Step 2 — Train DenseNetBioGPT (Full Run)
+
+```bash
+# Full 10-epoch training with fp16, gradient accumulation, and Drive checkpointing.
+# Effective batch size = 4 × 4 = 16.
+# Checkpoint saved every 100 optimizer steps → survives Colab disconnects.
+# Best val-loss checkpoint auto-saved to $CHECKPOINT_DIR/best_checkpoint/
+!python scripts/train.py \
+    --data_dir       data/iu_xray \
+    --output_dir     "$CHECKPOINT_DIR" \
+    --batch_size     4 \
+    --grad_accum_steps 4 \
+    --epochs         10 \
+    --lr_projector   2e-4 \
+    --lr_encoder     2e-5 \
+    --weight_decay   0.01 \
+    --warmup_ratio   0.05 \
+    --lora_r         16 \
+    --lora_alpha     32 \
+    --lora_dropout   0.05 \
+    --max_length     128 \
+    --save_steps     100 \
+    --eval_steps     100 \
+    --fp16 \
+    --seed           42
+```
+
+#### Resume After a Disconnect
+
+```bash
+# Pick up exactly where you left off — restores optimizer, scheduler, scaler, step counter.
+!python scripts/train.py \
+    --data_dir       data/iu_xray \
+    --output_dir     "$CHECKPOINT_DIR" \
+    --resume_from    "$CHECKPOINT_DIR/best_checkpoint" \
+    --batch_size     4 \
+    --grad_accum_steps 4 \
+    --epochs         10 \
+    --lr_projector   2e-4 \
+    --lr_encoder     2e-5 \
+    --fp16
+```
+
+---
+
+### Step 3 — Evaluate on Held-Out Test Split
+
+```bash
+# Generates results/metrics.json with BLEU-1..4, ROUGE-1/2/L, METEOR.
+# Batch size 8 is safe on T4; increase to 16 on A100.
+!python scripts/eval.py \
+    --checkpoint_dir "$CHECKPOINT_DIR/best_checkpoint" \
+    --split_file     data/iu_xray/splits/test.json \
+    --images_dir     data/iu_xray/images \
+    --output_file    results/metrics.json \
+    --biogpt_model   microsoft/biogpt \
+    --batch_size     8 \
+    --max_new_tokens 128 \
+    --num_beams      3
+```
+
+```python
+# Pretty-print results table inline in notebook
+import json
+with open('results/metrics.json') as f:
+    res = json.load(f)
+m = res['metrics']
+print(f"\n{'='*55}")
+print(f"  IU X-Ray Test Results  (N={m['num_evaluated_samples']})")
+print(f"{'='*55}")
+for k, v in m.items():
+    if k != 'num_evaluated_samples':
+        print(f"  {k:<12s}: {v:.4f}")
+print(f"{'='*55}\n")
+```
+
+---
+
+### Step 4 — Push Trained Weights to Existing HF Repo
+
+```python
+# 4a. Authenticate — paste your HF write-token when prompted
+from huggingface_hub import notebook_login
+notebook_login()
+```
+
+```python
+# 4b. Upload checkpoint artifacts directly to the existing model repo
+# This pushes: biogpt_lora/, vision_projector.pt, densenet_finetuned.pt,
+#              model_meta.json, training_state.pt, train_history.json
+from huggingface_hub import HfApi
+import os
+
+api = HfApi()
+REPO_ID = "Vikhram-S/mimic-vit-biogpt"   # ← your existing HF repo
+BEST_CKPT = os.path.join(os.environ.get("CHECKPOINT_DIR",
+            "/content/drive/MyDrive/densenetbiogpt_checkpoints"),
+            "best_checkpoint")
+
+api.upload_folder(
+    folder_path=BEST_CKPT,
+    repo_id=REPO_ID,
+    repo_type="model",
+    path_in_repo="model_weights",      # stored under model_weights/ in the repo
+    commit_message="feat: upload trained DenseNetBioGPT checkpoint (IU X-Ray, LoRA r=16)",
+    ignore_patterns=["*.log", "__pycache__/*"]
+)
+print("✅ Model weights pushed to", REPO_ID)
+```
+
+```python
+# 4c. Upload evaluation metrics so the model card reflects real numbers
+api.upload_file(
+    path_or_fileobj="results/metrics.json",
+    path_in_repo="results/metrics.json",
+    repo_id=REPO_ID,
+    repo_type="model",
+    commit_message="feat: add verified evaluation metrics (BLEU/ROUGE/METEOR on IU X-Ray test split)"
+)
+print("✅ metrics.json pushed to", REPO_ID)
+```
+
+```python
+# 4d. (Optional) Upload the full training history for transparency
+import os
+history_path = os.path.join(BEST_CKPT, "train_history.json")
+if os.path.exists(history_path):
+    api.upload_file(
+        path_or_fileobj=history_path,
+        path_in_repo="results/train_history.json",
+        repo_id=REPO_ID,
+        repo_type="model",
+        commit_message="chore: add full training loss history"
+    )
+    print("✅ train_history.json pushed to", REPO_ID)
+```
+
+---
+
+### Step 5 — (Optional) Regenerate the Colab Notebook & Push
+
+```bash
+# Regenerates notebooks/Train_IU_XRay_Colab.ipynb from source
+!python scripts/generate_notebook.py
+```
+
+```python
+# Push the notebook to HF so others can reproduce with one click
+api.upload_file(
+    path_or_fileobj="notebooks/Train_IU_XRay_Colab.ipynb",
+    path_in_repo="notebooks/Train_IU_XRay_Colab.ipynb",
+    repo_id=REPO_ID,
+    repo_type="model",
+    commit_message="feat: add reproducible Colab training notebook"
+)
+print("✅ Notebook pushed to", REPO_ID)
+```
+
+---
+
+### Checkpoint Directory Layout (After Training)
+
+```
+$CHECKPOINT_DIR/
+├── best_checkpoint/              ← lowest validation loss checkpoint (push this)
+│   ├── biogpt_lora/              — PEFT LoRA adapter weights (adapter_model.bin + config)
+│   ├── vision_projector.pt       — 2-layer MLP projector state dict
+│   ├── densenet_finetuned.pt     — DenseBlock4 + Norm5 fine-tuned weights
+│   ├── model_meta.json           — Architecture metadata
+│   ├── training_state.pt         — Optimizer / scheduler / scaler / step state
+│   └── train_history.json        — Val loss curve per step
+├── checkpoint-step-100/          ← Periodic checkpoints (every 100 steps)
+├── checkpoint-step-200/
+└── final_checkpoint/             ← Last epoch weights
+```
+
+---
+
 ## Citation
 
 If you use this model or the associated codebase in your research, please cite both this
