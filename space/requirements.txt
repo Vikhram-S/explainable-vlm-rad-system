@@ -1,0 +1,10 @@
+torch>=2.0.0
+torchvision>=0.15.0
+torchxrayvision==1.5.4
+transformers>=4.36.0
+peft>=0.7.0
+gradio>=4.0.0
+pillow>=9.5.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+scipy>=1.10.0

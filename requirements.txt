@@ -1,0 +1,27 @@
+# Core Deep Learning Framework
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Medical CXR Pretrained Encoders & Evaluation
+torchxrayvision==1.5.4
+
+# Language Decoder & Parameter-Efficient Fine-Tuning
+transformers>=4.36.0
+peft>=0.7.0
+
+# NLP & Clinical Text Evaluation
+sacrebleu>=2.4.0
+rouge_score>=0.1.2
+nltk>=3.8.0
+
+# Image Processing & Visualization
+pillow>=9.5.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+
+# Demo Interface & Hugging Face Utilities
+gradio>=4.0.0
+huggingface_hub>=0.20.0
+pyyaml>=6.0.0
